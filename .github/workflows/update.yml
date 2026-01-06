@@ -3,6 +3,11 @@ on:
   push:
   schedule:
     - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,6 +26,8 @@ jobs:
           mkdir -p EasyPrivacy
           curl -fsSL "$URL" | ./hostsblock/hostsblock - > EasyPrivacy/hosts
           rm -rf hostsblock
+          # copy generated file to repo root as requested
+          cp EasyPrivacy/hosts ./easyprivacy-hosts
 
       - name: Commit files
         run: |
@@ -28,7 +35,7 @@ jobs:
           EMAIL="${{ secrets.COMMIT_EMAIL }}"
           git config --local user.name "${NAME:-Update}"
           git config --local user.email "${EMAIL:-users.noreply.github.com}"
-          git add EasyPrivacy/hosts
+          git add EasyPrivacy/hosts easyprivacy-hosts
           git commit -m "Update EasyPrivacy hosts" || echo "No changes to commit"
 
       - name: Push changes
