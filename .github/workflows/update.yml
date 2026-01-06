@@ -1,5 +1,5 @@
 name: update
-on: 
+on:
   push:
   schedule:
     - cron: '0 0 * * *'
@@ -7,83 +7,32 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout repo content
-        uses: actions/checkout@v5 # checkout the repository content to github runner.
-      - name: execute sh script 
+      - name: Checkout repo content
+        uses: actions/checkout@v5
+
+      - name: Build hostsblock and convert easyprivacy to hosts
         run: |
-         shopt -s globstar
-         git clone https://github.com/ProgramComputer/hostsblock.git
-         cd **/hostsblock
-         make
-         cd -
-         declare -A raws
-         raws[ABPindo+EasyList]=https://easylist-downloads.adblockplus.org/abpindo+easylist.txt
-         raws[ABPVNList+EasyList]=https://easylist-downloads.adblockplus.org/abpvn+easylist.txt
-         raws[Bulgarianlist+EasyList]=https://easylist-downloads.adblockplus.org/bulgarian_list+easylist.txt
-         raws[NordicFilters+EasyList]=https://easylist-downloads.adblockplus.org/dandelion_sprouts_nordic_filters+easylist.txt
-         raws[EasyListChina+EasyList]=https://easylist-downloads.adblockplus.org/easylistchina+easylist.txt
-         raws[EasyListCzechandSlovak+EasyList]=https://easylist-downloads.adblockplus.org/easylistczechslovak+easylist.txt
-         raws[EasyListDutch+EasyList]=https://easylist-downloads.adblockplus.org/easylistdutch+easylist.txt
-         raws[EasyListGermany+EasyList]=https://easylist-downloads.adblockplus.org/easylistgermany+easylist.txt
-         raws[EasyListHebrew+EasyList]=https://easylist-downloads.adblockplus.org/israellist+easylist.txt
-         raws[EasyListItaly+EasyList]=https://easylist-downloads.adblockplus.org/easylistitaly+easylist.txt
-         raws[EasyListLithuania+EasyList]=https://easylist-downloads.adblockplus.org/easylistlithuania+easylist.txt
-         raws[EasyListPolish+EasyList]=https://easylist-downloads.adblockplus.org/easylistpolish+easylist.txt
-         raws[EasyListPortuguese+EasyList]=https://easylist-downloads.adblockplus.org/easylistportuguese+easylist.txt
-         raws[EasyListSpanish+EasyList]=https://easylist-downloads.adblockplus.org/easylistspanish+easylist.txt
-         raws[IndianList+EasyList]=https://easylist-downloads.adblockplus.org/indianlist+easylist.txt
-         raws[KoreanList+EasyList]=https://easylist-downloads.adblockplus.org/koreanlist+easylist.txt
-         raws[LatvianList+EasyList]=https://easylist-downloads.adblockplus.org/latvianlist+easylist.txt
-         raws[ListeAR+ListeFR+EasyList]=https://easylist-downloads.adblockplus.org/liste_ar+liste_fr+easylist.txt
-         raws[ListeFR+EasyList]=https://easylist-downloads.adblockplus.org/liste_fr+easylist.txt
-         raws[ROList+EasyList]=https://easylist-downloads.adblockplus.org/rolist+easylist.txt
-         raws[RuAdList+EasyList]=https://easylist-downloads.adblockplus.org/ruadlist+easylist.txt
-         raws[EasyList_noadult]=https://easylist-downloads.adblockplus.org/easylist_noadult.txt
-         raws[antiadblockfilters]=https://easylist-downloads.adblockplus.org/antiadblockfilters.txt 
-         raws[easylist_noelemhide]=https://easylist-downloads.adblockplus.org/easylist_noelemhide.txt  
-         raws[EasyList]=https://easylist-downloads.adblockplus.org/easylist.txt
-         curl -s ${raws[EasyList]} | ./hostsblock/hostsblock - > hosts
-         unset raws[EasyList]
-         for raw in "${!raws[@]}"; do
-            mkdir -p $raw
-            echo $raw
-            echo ${raws[$raw]}
-            curl -s ${raws[$raw]} | ./hostsblock/hostsblock - > ./$raw/hosts
-         done
-         mkdir -p EasyListAllCombined
-         sort hosts **/hosts | uniq > ./EasyListAllCombined/hosts
-         echo "Download";
-         wget https://github.com/easylist/easylist/archive/refs/heads/master.zip
-         unzip master.zip
-         rm -rf master.zip
-         chmod -R 777 ./easylist-master
-         subdirectories=("easylist" "easylist_adult" "easylist_cookie" "easyprivacy" "fanboy-addon")
-         
-         for dir in "${subdirectories[@]}"; do
-            full_dir="./easylist-master/$dir"
-            for file in "$full_dir"/*; do
-                if [ -f "$file" ]; then
-            filename=$(basename "$file")
-           mkdir -p ./EasyListMirror/$dir/$filename;
-           echo $file;
-           cat $file | ./hostsblock/hostsblock - > ./EasyListMirror/$dir/$filename/hosts;
-                fi
-          done
-         done
-         sudo rm -rf hostsblock
-         sudo rm -rf easylist-master
-        env:
-          key: ${{ secrets.key }} # if run.py requires passwords..etc, set it as secrets
-      - name: Commit files # transfer the new html files back into the repository
+          set -e
+          git clone https://github.com/ProgramComputer/hostsblock.git
+          cd hostsblock
+          make
+          cd ..
+          URL="https://easylist-downloads.adblockplus.org/easyprivacy.txt"
+          mkdir -p EasyPrivacy
+          curl -fsSL "$URL" | ./hostsblock/hostsblock - > EasyPrivacy/hosts
+          rm -rf hostsblock
+
+      - name: Commit files
         run: |
-         NAME="${{ secrets.COMMIT_NAME }}"
-         EMAIL="${{ secrets.COMMIT_EMAIL }}"
-         git config --local user.name "${NAME:-Update}"
-         git config --local user.email "${EMAIL:-users.noreply.github.com}"
-         git add .
-         git commit -m "Updating the hosts files" || echo "No changes to commit"
-      - name: Push changes # push the output folder to your repo
+          NAME="${{ secrets.COMMIT_NAME }}"
+          EMAIL="${{ secrets.COMMIT_EMAIL }}"
+          git config --local user.name "${NAME:-Update}"
+          git config --local user.email "${EMAIL:-users.noreply.github.com}"
+          git add EasyPrivacy/hosts
+          git commit -m "Update EasyPrivacy hosts" || echo "No changes to commit"
+
+      - name: Push changes
         uses: ad-m/github-push-action@master
         with:
-         github_token: ${{ secrets.GITHUB_TOKEN }}
-         force: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          force: true
